@@ -318,12 +318,14 @@ def main():
     st.title("JSW Engineering Drawing DataSheet Extractor")
     st.write("Upload your engineering drawings to extract key parameters automatically.")
 
-    # Initialize session state for the drawings table
+    # Initialize session states
     if 'drawings_data' not in st.session_state:
         st.session_state.drawings_data = pd.DataFrame(
             columns=['Drawing Type', 'Drawing No.', 'Processing Status', 
                     'Extracted Fields Count', 'Confidence Score', 'View/Edit']
         )
+    if 'uploaded_files_dict' not in st.session_state:
+        st.session_state.uploaded_files_dict = {}
 
     # Create two pages using radio buttons
     page = st.radio("Navigation", ["Upload Drawings", "Process Drawings"], label_visibility="hidden")
@@ -345,14 +347,16 @@ def main():
             
             # Process each file for identification
             for uploaded_file in uploaded_files:
+                # Store file in session state
+                file_content = uploaded_file.read()
+                st.session_state.uploaded_files_dict[uploaded_file.name] = file_content
+                uploaded_file.seek(0)  # Reset file pointer
+                
                 # Check if this file is already processed
                 if not any(st.session_state.drawings_data['Drawing No.'].str.contains(uploaded_file.name, na=False)):
                     with st.spinner(f'Identifying drawing type for {uploaded_file.name}...'):
-                        uploaded_file.seek(0)
-                        image_bytes = uploaded_file.read()
-                        
                         # First identify the drawing type
-                        identification = identify_drawing_type(image_bytes)
+                        identification = identify_drawing_type(file_content)
                         parsed_id = parse_identification_response(identification)
                         
                         # Add to the table
@@ -433,10 +437,8 @@ def main():
 
                 if st.button("Process Drawing", key=f"process_button_{drawing_idx}"):
                     with st.spinner('Processing drawing...'):
-                        # Get the original file
-                        uploaded_file = [f for f in uploaded_files if f.name == drawing_data['Drawing No.'] or drawing_data['Drawing No.'] in f.name][0]
-                        uploaded_file.seek(0)
-                        image_bytes = uploaded_file.read()
+                        # Get the file content from session state
+                        image_bytes = st.session_state.uploaded_files_dict[drawing_data['Drawing No.']]
                         
                         # Process based on drawing type
                         result = process_drawing(image_bytes, drawing_data['Drawing Type'])
@@ -536,9 +538,9 @@ def main():
                     )
 
             with col2:
-                # Display the image
-                uploaded_file = [f for f in uploaded_files if f.name == drawing_data['Drawing No.'] or drawing_data['Drawing No.'] in f.name][0]
-                image = Image.open(uploaded_file)
+                # Display the image using stored bytes
+                image_bytes = st.session_state.uploaded_files_dict[drawing_data['Drawing No.']]
+                image = Image.open(io.BytesIO(image_bytes))
                 st.image(image, caption=f"Drawing: {drawing_data['Drawing No.']}")
 
 if __name__ == "__main__":
