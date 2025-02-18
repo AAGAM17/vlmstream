@@ -11,6 +11,11 @@ load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
+# Debug information
+st.write("Debug Info:")
+st.write(f"API Key loaded: {'Yes' if API_KEY else 'No'}")
+st.write(f"API Key first 10 chars: {API_KEY[:10] if API_KEY else 'None'}")
+
 if not API_KEY:
     st.error("❌ API key not found! Check your .env file.")
     st.stop()  
