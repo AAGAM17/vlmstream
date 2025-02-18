@@ -533,15 +533,19 @@ def convert_pdf_to_images(pdf_bytes):
 
 def process_uploaded_file(uploaded_file):
     """Process uploaded file whether it's an image or PDF."""
-    file_extension = uploaded_file.name.split('.')[-1].lower()
-    
-    if file_extension == 'pdf':
-        # Convert PDF to images
-        pdf_bytes = uploaded_file.read()
-        return convert_pdf_to_images(pdf_bytes)
-    else:
-        # Regular image file
-        return [uploaded_file.read()]
+    try:
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        
+        if file_extension == 'pdf':
+            # Convert PDF to images
+            pdf_bytes = uploaded_file.read()
+            return convert_pdf_to_images(pdf_bytes)
+        else:
+            # Regular image file
+            return [uploaded_file.read()]
+    except Exception as e:
+        st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
+        return None
 
 def main():
     # Set page config
@@ -554,28 +558,33 @@ def main():
     st.title("JSW Engineering Drawing DataSheet Extractor")
     st.write("Upload your engineering drawings (Cylinders, Valves, or Gearboxes) to extract key parameters automatically.")
 
-    # Initialize session state for navigation
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "Upload"
+    # Initialize session state variables if they don't exist
+    if 'uploaded_files' not in st.session_state:
+        st.session_state.uploaded_files = []
+    if 'image_bytes' not in st.session_state:
+        st.session_state.image_bytes = []
+    if 'image_names' not in st.session_state:
+        st.session_state.image_names = []
 
-    # Navigation tabs instead of radio buttons for better UX
+    # Navigation tabs
     tabs = st.tabs(["📤 Upload", "🔄 Process", "📋 Results"])
 
     with tabs[0]:  # Upload Tab
         st.header("Upload Engineering Drawings")
         st.write("Drag and drop or select multiple engineering drawing files.")
         
-        # File uploader with expanded file type support including PDF
+        # File uploader
         uploaded_files = st.file_uploader(
             "Select Files", 
             type=['png', 'jpg', 'jpeg', 'bmp', 'tiff', 'webp', 'gif', 'pdf'],
             accept_multiple_files=True,
-            help="Supports various formats: PNG, JPG, JPEG, BMP, TIFF, WebP, GIF, PDF"
+            help="Supports various formats: PNG, JPG, JPEG, BMP, TIFF, WebP, GIF, PDF",
+            key="file_uploader"
         )
 
-        if uploaded_files:
+        if uploaded_files and uploaded_files != st.session_state.uploaded_files:
             with st.spinner("Processing uploaded files..."):
-                # Process all uploaded files and store their images
+                st.session_state.uploaded_files = uploaded_files
                 all_images = []
                 all_image_names = []
                 
@@ -592,7 +601,6 @@ def main():
                 if all_images:
                     st.session_state.image_bytes = all_images
                     st.session_state.image_names = all_image_names
-                    st.session_state.uploaded_files = uploaded_files
                     
                     # Initialize summary table with basic info
                     create_summary_table()
@@ -608,10 +616,6 @@ def main():
                         with cols[idx % 3]:
                             image = Image.open(io.BytesIO(image_bytes))
                             st.image(image, caption=all_image_names[idx], use_column_width=True)
-                    
-                    # Auto-switch to process tab
-                    st.session_state.current_page = "Process"
-                    st.rerun()
 
     with tabs[1]:  # Process Tab
         if 'image_bytes' not in st.session_state or not st.session_state.image_bytes:
