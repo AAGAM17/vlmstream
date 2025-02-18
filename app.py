@@ -1,10 +1,4 @@
 import streamlit as st
-# Must be the first Streamlit command
-st.set_page_config(
-    page_title="JSW Engineering Drawing DataSheet Extractor",
-    layout="wide"
-)
-
 import base64
 from PIL import Image
 import io
@@ -14,6 +8,12 @@ import requests
 from dotenv import load_dotenv
 import json
 
+
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="JSW Engineering Drawing DataSheet Extractor",
+    layout="wide"
+)
 load_dotenv()
 
 # Hardcoded API key for testing
