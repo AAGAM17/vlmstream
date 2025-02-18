@@ -6,28 +6,17 @@ import pandas as pd
 import os
 import requests
 from dotenv import load_dotenv
-import json
 
-
-# Must be the first Streamlit command
-st.set_page_config(
-    page_title="JSW Engineering Drawing DataSheet Extractor",
-    layout="wide"
-)
+# Load API key
 load_dotenv()
 
-# Hardcoded API key for testing
-OPENROUTER_API_KEY = "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"
+API_KEY = os.getenv("API_KEY")
 
-# Debug information
-st.write("Debug Info:")
-st.write(f"API Key loaded: {'Yes' if OPENROUTER_API_KEY else 'No'}")
-st.write(f"API Key first 10 chars: {OPENROUTER_API_KEY[:10] if OPENROUTER_API_KEY else 'None'}")
-
-if not OPENROUTER_API_KEY:
+if not API_KEY:
     st.error("❌ API key not found! Check your .env file.")
-    st.stop()  
+    st.stop()  # Stops execution if no API key is found.
 
+# OpenRouter API URL for Qwen2.5-VL-72B-Instruct
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Initialize session state for processed drawings
@@ -49,21 +38,58 @@ def parse_ai_response(response_text):
             key, value = line.split(':', 1)
             key = key.strip().upper()
             value = value.strip()
-            results[key] = value if value else "" 
+            results[key] = value if value else ""  # Keep blank if missing
     return results
+
+def identify_component_type(image_bytes):
+    """Identify whether the drawing is of a cylinder, valve, or gearbox."""
+    base64_image = encode_image_to_base64(image_bytes)
+    
+    payload = {
+        "model": "qwen/qwen2.5-vl-72b-instruct:free",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Look at this engineering drawing and identify what type of component it is.\n"
+                            "STRICT RULES:\n"
+                            "1) Only identify if it's one of these components: CYLINDER, VALVE, or GEARBOX\n"
+                            "2) Return ONLY the component type in capital letters, nothing else\n"
+                            "3) If you cannot clearly identify the component type, return 'UNKNOWN'"
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": base64_image
+                    }
+                ]
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+        response_json = response.json()
+        
+        if response.status_code == 200 and "choices" in response_json:
+            return response_json["choices"][0]["message"]["content"].strip()
+        else:
+            return f"❌ API Error: {response_json}"
+
+    except Exception as e:
+        return f"❌ Processing Error: {str(e)}"
 
 def analyze_cylinder_image(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://aagam17-vlmstream-app-mjypli.streamlit.app",  # Required for OpenRouter
-        "X-Title": "JSW Engineering Drawing Extractor",  # Optional but recommended
-        "OpenAI-Organization": "org-123",  # Required by OpenRouter
-        "User-Agent": "Mozilla/5.0"  # Required by OpenRouter
-    }
-
     payload = {
         "model": "qwen/qwen2.5-vl-72b-instruct:free",
         "messages": [
@@ -103,78 +129,19 @@ def analyze_cylinder_image(image_bytes):
         ]
     }
 
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     try:
-        response = requests.post(
-            url=API_URL,
-            headers=headers,
-            json=payload
-        )
-        
-        # Print debug information
-        st.write("Debug - Response Status:", response.status_code)
-        st.write("Debug - Response Headers:", dict(response.headers))
-        st.write("Debug - Request Headers:", headers)
-        
+        response = requests.post(API_URL, headers=headers, json=payload)
         response_json = response.json()
         
         if response.status_code == 200 and "choices" in response_json:
             return response_json["choices"][0]["message"]["content"]
         else:
-            return f"❌ API Error: {response_json}"
-
-    except Exception as e:
-        return f"❌ Processing Error: {str(e)}"
-
-def identify_component_type(image_bytes):
-    """Identify whether the drawing is of a cylinder, valve, or gearbox."""
-    base64_image = encode_image_to_base64(image_bytes)
-    
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://aagam17-vlmstream-app-mjypli.streamlit.app",  # Required for OpenRouter
-        "X-Title": "JSW Engineering Drawing Extractor",  # Optional but recommended
-        "OpenAI-Organization": "org-123",  # Required by OpenRouter
-        "User-Agent": "Mozilla/5.0"  # Required by OpenRouter
-    }
-
-    payload = {
-        "model": "qwen/qwen2.5-vl-72b-instruct:free",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Look at this engineering drawing and identify what type of component it is.\n"
-                            "STRICT RULES:\n"
-                            "1) Only identify if it's one of these components: CYLINDER, VALVE, or GEARBOX\n"
-                            "2) Return ONLY the component type in capital letters, nothing else\n"
-                            "3) If you cannot clearly identify the component type, return 'UNKNOWN'"
-                        )
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": base64_image
-                    }
-                ]
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(
-            url=API_URL,
-            headers=headers,
-            json=payload
-        )
-        response_json = response.json()
-        
-        if response.status_code == 200 and "choices" in response_json:
-            return response_json["choices"][0]["message"]["content"].strip()
-        else:
-            return f"❌ API Error: {response_json}"
+            return f"❌ API Error: {response_json}"  # Returns error details
 
     except Exception as e:
         return f"❌ Processing Error: {str(e)}"
@@ -212,6 +179,12 @@ def calculate_confidence(parsed_results):
     return round((filled_fields / total_fields) * 100)
 
 def main():
+    # Set page config
+    st.set_page_config(
+        page_title="JSW Engineering Drawing DataSheet Extractor",
+        layout="wide"
+    )
+
     # Title
     st.title("JSW Engineering Drawing DataSheet Extractor")
 
