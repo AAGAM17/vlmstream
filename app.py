@@ -16,7 +16,7 @@ import json
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
+API_KEY = os.getenv("API_KEY") or "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"
 
 # Debug information
 st.write("Debug Info:")
@@ -55,7 +55,7 @@ def analyze_cylinder_image(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer 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",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/AAGAM17",
         "X-Title": "JSW Engineering Drawing Extractor"
@@ -123,7 +123,7 @@ def identify_component_type(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer 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",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/AAGAM17",
         "X-Title": "JSW Engineering Drawing Extractor"
