@@ -11,3 +11,5 @@ env/
 .venv/
 ENV/
 .virtualenv/
+.streamlit/secrets.toml
+.devcontainer/

@@ -6,58 +6,23 @@ import pandas as pd
 import os
 import requests
 from dotenv import load_dotenv
-from pdf2image import convert_from_bytes
-import tempfile
 
 load_dotenv()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+API_KEY = os.getenv("API_KEY")
 
-if not OPENROUTER_API_KEY:
+if not API_KEY:
     st.error("❌ API key not found! Check your .env file.")
     st.stop()  
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-def convert_pdf_to_images(pdf_bytes):
-    """Convert PDF bytes to a list of PIL Images."""
-    try:
-        # Create images from PDF bytes
-        images = convert_from_bytes(
-            pdf_bytes,
-            dpi=200,  # Adjust DPI as needed for quality vs performance
-            fmt='jpeg'
-        )
-        return images
-    except Exception as e:
-        st.error(f"Error converting PDF: {str(e)}")
-        return []
-
-def process_uploaded_file(uploaded_file):
-    """Process uploaded file (PDF or Image) and return list of PIL Images."""
-    try:
-        if uploaded_file.type == "application/pdf":
-            # Handle PDF
-            pdf_bytes = uploaded_file.read()
-            images = convert_pdf_to_images(pdf_bytes)
-            if not images:
-                st.error(f"Failed to convert PDF {uploaded_file.name}")
-                return []
-            return images
-        else:
-            # Handle image
-            image = Image.open(uploaded_file)
-            return [image]
-    except Exception as e:
-        st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
-        return []
-
-def pil_image_to_bytes(pil_image):
-    """Convert PIL Image to bytes."""
-    img_byte_arr = io.BytesIO()
-    pil_image.save(img_byte_arr, format='JPEG')
-    img_byte_arr = img_byte_arr.getvalue()
-    return img_byte_arr
+# Initialize session state for processed drawings
+if 'processed_drawings' not in st.session_state:
+    st.session_state.processed_drawings = pd.DataFrame(
+        columns=['Drawing Type', 'Drawing No.', 'Processing Status', 
+                'Extracted Fields Count', 'Confidence Score', 'View/Edit']
+    )
 
 def encode_image_to_base64(image_bytes):
     return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8")
@@ -117,7 +82,7 @@ def analyze_cylinder_image(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -133,7 +98,8 @@ def analyze_cylinder_image(image_bytes):
     except Exception as e:
         return f"❌ Processing Error: {str(e)}"
 
-def identify_drawing_type(image_bytes):
+def identify_component_type(image_bytes):
+    """Identify whether the drawing is of a cylinder, valve, or gearbox."""
     base64_image = encode_image_to_base64(image_bytes)
     
     payload = {
@@ -145,11 +111,11 @@ def identify_drawing_type(image_bytes):
                     {
                         "type": "text",
                         "text": (
-                            "Analyze this engineering drawing and tell me if this is a CYLINDER, VALVE, or GEARBOX drawing.\n"
-                            "Also extract the drawing number if visible.\n"
-                            "Return ONLY in this format:\n"
-                            "TYPE: [CYLINDER/VALVE/GEARBOX]\n"
-                            "DRAWING_NUMBER: [number if visible, else empty]"
+                            "Look at this engineering drawing and identify what type of component it is.\n"
+                            "STRICT RULES:\n"
+                            "1) Only identify if it's one of these components: CYLINDER, VALVE, or GEARBOX\n"
+                            "2) Return ONLY the component type in capital letters, nothing else\n"
+                            "3) If you cannot clearly identify the component type, return 'UNKNOWN'"
                         )
                     },
                     {
@@ -162,7 +128,7 @@ def identify_drawing_type(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -171,25 +137,44 @@ def identify_drawing_type(image_bytes):
         response_json = response.json()
         
         if response.status_code == 200 and "choices" in response_json:
-            return parse_ai_response(response_json["choices"][0]["message"]["content"])
+            return response_json["choices"][0]["message"]["content"].strip()
         else:
-            return {"TYPE": "ERROR", "DRAWING_NUMBER": ""}
+            return f"❌ API Error: {response_json}"
 
     except Exception as e:
-        return {"TYPE": "ERROR", "DRAWING_NUMBER": ""}
+        return f"❌ Processing Error: {str(e)}"
 
-def initialize_session_state():
-    if 'processing_table' not in st.session_state:
-        st.session_state.processing_table = pd.DataFrame(columns=[
-            'Drawing Type',
-            'Drawing No.',
-            'Processing Status',
-            'Extracted Fields Count',
-            'Confidence Score',
-            'View/Edit'
-        ])
-    if 'results_df' not in st.session_state:
-        st.session_state.results_df = None
+def update_processing_table(drawing_type, drawing_number, status, fields_count=0, confidence=0):
+    """Update the processing history table with new drawing information."""
+    new_row = pd.DataFrame([{
+        'Drawing Type': drawing_type,
+        'Drawing No.': drawing_number,
+        'Processing Status': status,
+        'Extracted Fields Count': f"{fields_count}/13" if fields_count > 0 else "",
+        'Confidence Score': f"{confidence}%" if confidence > 0 else "",
+        'View/Edit': "View"
+    }])
+    
+    # Check if drawing number already exists
+    existing_idx = st.session_state.processed_drawings[
+        st.session_state.processed_drawings['Drawing No.'] == drawing_number
+    ].index
+    
+    if len(existing_idx) > 0:
+        # Update existing row
+        st.session_state.processed_drawings.loc[existing_idx] = new_row.iloc[0]
+    else:
+        # Append new row
+        st.session_state.processed_drawings = pd.concat(
+            [st.session_state.processed_drawings, new_row], 
+            ignore_index=True
+        )
+
+def calculate_confidence(parsed_results):
+    """Calculate overall confidence based on filled fields."""
+    filled_fields = sum(1 for value in parsed_results.values() if value.strip())
+    total_fields = len(parsed_results)
+    return round((filled_fields / total_fields) * 100)
 
 def main():
     # Set page config
@@ -200,143 +185,123 @@ def main():
 
     # Title
     st.title("JSW Engineering Drawing DataSheet Extractor")
-    st.write("Drag and drop or select multiple engineering drawings (PDF or Images)")
 
-    # Initialize session state
-    initialize_session_state()
+    # Show processing history table
+    if not st.session_state.processed_drawings.empty:
+        st.write("### Processing History")
+        st.dataframe(
+            st.session_state.processed_drawings,
+            column_config={
+                "View/Edit": st.column_config.ButtonColumn(
+                    "View/Edit",
+                    help="Click to view or edit the drawing details"
+                )
+            },
+            hide_index=True
+        )
+
+    # Define expected parameters in the new order
+    parameters = [
+        "CYLINDER ACTION",
+        "BORE DIAMETER",
+        "OUTSIDE DIAMETER",
+        "ROD DIAMETER",
+        "STROKE LENGTH",
+        "CLOSE LENGTH",
+        "OPEN LENGTH",
+        "OPERATING PRESSURE",
+        "OPERATING TEMPERATURE",
+        "MOUNTING",
+        "ROD END",
+        "FLUID",
+        "DRAWING NUMBER"
+    ]
 
     # File uploader and processing section
-    uploaded_files = st.file_uploader(
-        "Select Files",
-        type=['png', 'jpg', 'jpeg', 'pdf'],
-        accept_multiple_files=True
-    )
+    uploaded_file = st.file_uploader("Select File", type=['png', 'jpg', 'jpeg'])
 
-    if uploaded_files:
-        # Initial identification step
-        if st.button("Identify Drawings", key="identify_button"):
-            new_rows = []
-            all_images = []  # Store all processed images
-            file_page_map = {}  # Map to track which file and page each image came from
-            
-            progress_bar = st.progress(0)
-            total_files = len(uploaded_files)
-            current_progress = 0
-            
-            for file_idx, uploaded_file in enumerate(uploaded_files):
-                images = process_uploaded_file(uploaded_file)
-                
-                for page_idx, image in enumerate(images):
-                    # Convert PIL Image to bytes for API
-                    image_bytes = pil_image_to_bytes(image)
-                    
-                    # Identify drawing type
-                    identification = identify_drawing_type(image_bytes)
-                    
-                    # Create page suffix for multi-page PDFs
-                    page_suffix = f" (Page {page_idx + 1})" if len(images) > 1 else ""
-                    file_name = f"{uploaded_file.name}{page_suffix}"
-                    
-                    new_row = {
-                        'Drawing Type': identification.get('TYPE', 'Unknown'),
-                        'Drawing No.': identification.get('DRAWING_NUMBER', ''),
-                        'Processing Status': 'Pending',
-                        'Extracted Fields Count': '0/0',
-                        'Confidence Score': '0%',
-                        'View/Edit': 'Pending'
-                    }
-                    new_rows.append(new_row)
-                    
-                    # Store image and mapping
-                    all_images.append(image)
-                    file_page_map[len(all_images) - 1] = {
-                        'file_name': file_name,
-                        'original_file': uploaded_file,
-                        'page': page_idx
-                    }
-                
-                # Update progress
-                current_progress = (file_idx + 1) / total_files
-                progress_bar.progress(current_progress)
-            
-            # Store images and mapping in session state
-            st.session_state.processed_images = all_images
-            st.session_state.file_page_map = file_page_map
-            
-            # Update processing table
-            st.session_state.processing_table = pd.DataFrame(new_rows)
-            st.success("✅ Drawing identification completed!")
+    if uploaded_file is not None:
+        col1, col2 = st.columns([3, 2])
+        
+        with col1:
+            if 'results_df' not in st.session_state:
+                st.session_state.results_df = None
 
-        # Display processing table
-        if not st.session_state.processing_table.empty:
-            st.write("### Processing Status")
-            st.dataframe(
-                st.session_state.processing_table,
-                column_config={
-                    "View/Edit": st.column_config.ButtonColumn(
-                        "View/Edit",
-                        help="Click to view or edit the drawing details"
-                    )
-                },
-                hide_index=True
-            )
-
-        # Process button for detailed analysis
-        if not st.session_state.processing_table.empty and st.button("Process Drawings", key="process_button"):
-            all_results = []
-            progress_bar = st.progress(0)
-            
-            for idx in range(len(st.session_state.processed_images)):
-                image = st.session_state.processed_images[idx]
-                file_info = st.session_state.file_page_map[idx]
-                
-                with st.spinner(f'Processing drawing {idx + 1} of {len(st.session_state.processed_images)}...'):
-                    # Convert PIL Image to bytes for API
-                    image_bytes = pil_image_to_bytes(image)
+            if st.button("Process Drawing", key="process_button"):
+                with st.spinner('Identifying component type...'):
+                    uploaded_file.seek(0)
+                    image_bytes = uploaded_file.read()
                     
-                    # Get drawing type from processing table
-                    drawing_type = st.session_state.processing_table.iloc[idx]['Drawing Type']
+                    # First identify the component type
+                    component_type = identify_component_type(image_bytes)
                     
-                    # Update status to Processing
-                    st.session_state.processing_table.loc[idx, 'Processing Status'] = 'Processing...'
-                    
-                    result = analyze_cylinder_image(image_bytes)  # We'll need to modify this based on drawing type
-                    
-                    if "❌ API Error" in result or "❌ Processing Error" in result:
-                        st.session_state.processing_table.loc[idx, 'Processing Status'] = 'Failed'
-                        st.error(f"Error processing {file_info['file_name']}: {result}")
+                    if "❌" in component_type:
+                        st.error(component_type)
                     else:
-                        parsed_results = parse_ai_response(result)
-                        # Count non-empty fields
-                        field_count = sum(1 for v in parsed_results.values() if v.strip())
-                        total_fields = len(parsed_results)
-                        confidence_score = (field_count / total_fields) * 100
+                        st.info(f"Identified component type: {component_type}")
                         
-                        # Update processing table
-                        st.session_state.processing_table.loc[idx, 'Processing Status'] = 'Completed'
-                        st.session_state.processing_table.loc[idx, 'Extracted Fields Count'] = f"{field_count}/{total_fields}"
-                        st.session_state.processing_table.loc[idx, 'Confidence Score'] = f"{confidence_score:.0f}%"
-                        st.session_state.processing_table.loc[idx, 'View/Edit'] = 'View'
+                        # Update table with initial status
+                        update_processing_table(
+                            component_type,
+                            "Processing...",
+                            "Processing.."
+                        )
                         
-                        # Add results to collection
-                        parsed_results['FILENAME'] = file_info['file_name']
-                        all_results.append(parsed_results)
-                    
-                    # Update progress bar
-                    progress_bar.progress((idx + 1) / len(st.session_state.processed_images))
-            
-            if all_results:
-                st.session_state.results_df = pd.DataFrame(all_results)
-                st.success("✅ All drawings processed successfully!")
+                        if component_type == "CYLINDER":
+                            with st.spinner('Processing cylinder drawing...'):
+                                result = analyze_cylinder_image(image_bytes)
+                                
+                                if "❌" in result:
+                                    st.error(result)
+                                    update_processing_table(
+                                        component_type,
+                                        "Error",
+                                        "Failed"
+                                    )
+                                else:
+                                    parsed_results = parse_ai_response(result)
+                                    drawing_number = parsed_results.get("DRAWING NUMBER", "Unknown")
+                                    confidence = calculate_confidence(parsed_results)
+                                    fields_count = sum(1 for v in parsed_results.values() if v.strip())
+                                    
+                                    status = "Completed" if confidence == 100 else "Needs Review!"
+                                    
+                                    update_processing_table(
+                                        component_type,
+                                        drawing_number,
+                                        status,
+                                        fields_count,
+                                        confidence
+                                    )
+                                    
+                                    st.session_state.results_df = pd.DataFrame([
+                                        {"Parameter": k, "Value": parsed_results.get(k, "")}
+                                        for k in parameters
+                                    ])
+                                    st.success("✅ Drawing processed successfully!")
+                        else:
+                            update_processing_table(
+                                component_type,
+                                "Not Implemented",
+                                "Not Supported"
+                            )
+                            st.warning(f"Processing for {component_type} is not yet implemented.")
 
-        # Display images grid
-        if hasattr(st.session_state, 'processed_images'):
-            st.write("### Uploaded Technical Drawings")
-            cols = st.columns(3)
-            for idx, image in enumerate(st.session_state.processed_images):
-                with cols[idx % 3]:
-                    file_info = st.session_state.file_page_map[idx]
-                    st.image(image, caption=file_info['file_name'])
+            if st.session_state.results_df is not None:
+                st.write("### Extracted Parameters")
+                st.table(st.session_state.results_df)
+            
+                csv = st.session_state.results_df.to_csv(index=False)
+                st.download_button(
+                    label="Download CSV",
+                    data=csv,
+                    file_name="cylinder_parameters.csv",
+                    mime="text/csv"
+                )
+
+        with col2:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Technical Drawing")
 
 if __name__ == "__main__":
     main()
