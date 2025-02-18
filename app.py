@@ -12,6 +12,7 @@ import pandas as pd
 import os
 import requests
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -53,6 +54,13 @@ def parse_ai_response(response_text):
 def analyze_cylinder_image(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/AAGAM17",
+        "X-Title": "JSW Engineering Drawing Extractor"
+    }
+
     payload = {
         "model": "qwen/qwen2.5-vl-72b-instruct:free",
         "messages": [
@@ -85,27 +93,27 @@ def analyze_cylinder_image(image_bytes):
                     },
                     {
                         "type": "image_url",
-                        "image_url": base64_image
+                        "image_url": {
+                            "url": base64_image
+                        }
                     }
                 ]
             }
         ]
     }
 
-    headers = {
-        "HTTP-Referer": "https://github.com/aagam147",
-        "Authorization": API_KEY,
-        "Content-Type": "application/json"
-    }
-
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
+        response = requests.post(
+            url=API_URL,
+            headers=headers,
+            data=json.dumps(payload)
+        )
         response_json = response.json()
         
         if response.status_code == 200 and "choices" in response_json:
             return response_json["choices"][0]["message"]["content"]
         else:
-            return f"❌ API Error: {response_json}"  # Returns error details
+            return f"❌ API Error: {response_json}"
 
     except Exception as e:
         return f"❌ Processing Error: {str(e)}"
@@ -114,6 +122,13 @@ def identify_component_type(image_bytes):
     """Identify whether the drawing is of a cylinder, valve, or gearbox."""
     base64_image = encode_image_to_base64(image_bytes)
     
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/AAGAM17",
+        "X-Title": "JSW Engineering Drawing Extractor"
+    }
+
     payload = {
         "model": "qwen/qwen2.5-vl-72b-instruct:free",
         "messages": [
@@ -132,21 +147,21 @@ def identify_component_type(image_bytes):
                     },
                     {
                         "type": "image_url",
-                        "image_url": base64_image
+                        "image_url": {
+                            "url": base64_image
+                        }
                     }
                 ]
             }
         ]
     }
 
-    headers = {
-        "HTTP-Referer": "https://github.com/aagam147",
-        "Authorization": API_KEY,
-        "Content-Type": "application/json"
-    }
-
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
+        response = requests.post(
+            url=API_URL,
+            headers=headers,
+            data=json.dumps(payload)
+        )
         response_json = response.json()
         
         if response.status_code == 200 and "choices" in response_json:
