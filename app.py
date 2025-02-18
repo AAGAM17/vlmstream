@@ -16,14 +16,15 @@ import json
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY") or "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"
+# Hardcoded API key for testing
+OPENROUTER_API_KEY = "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"
 
 # Debug information
 st.write("Debug Info:")
-st.write(f"API Key loaded: {'Yes' if API_KEY else 'No'}")
-st.write(f"API Key first 10 chars: {API_KEY[:10] if API_KEY else 'None'}")
+st.write(f"API Key loaded: {'Yes' if OPENROUTER_API_KEY else 'No'}")
+st.write(f"API Key first 10 chars: {OPENROUTER_API_KEY[:10] if OPENROUTER_API_KEY else 'None'}")
 
-if not API_KEY:
+if not OPENROUTER_API_KEY:
     st.error("❌ API key not found! Check your .env file.")
     st.stop()  
 
@@ -55,7 +56,7 @@ def analyze_cylinder_image(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
     headers = {
-        "Authorization": f"Bearer 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",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/AAGAM17",
         "X-Title": "JSW Engineering Drawing Extractor"
@@ -93,9 +94,7 @@ def analyze_cylinder_image(image_bytes):
                     },
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": base64_image
-                        }
+                        "image_url": base64_image
                     }
                 ]
             }
@@ -106,8 +105,13 @@ def analyze_cylinder_image(image_bytes):
         response = requests.post(
             url=API_URL,
             headers=headers,
-            data=json.dumps(payload)
+            json=payload  # Changed from data=json.dumps(payload) to json=payload
         )
+        
+        # Print debug information
+        st.write("Debug - Response Status:", response.status_code)
+        st.write("Debug - Response Headers:", dict(response.headers))
+        
         response_json = response.json()
         
         if response.status_code == 200 and "choices" in response_json:
@@ -123,7 +127,7 @@ def identify_component_type(image_bytes):
     base64_image = encode_image_to_base64(image_bytes)
     
     headers = {
-        "Authorization": f"Bearer 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",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/AAGAM17",
         "X-Title": "JSW Engineering Drawing Extractor"
@@ -147,9 +151,7 @@ def identify_component_type(image_bytes):
                     },
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": base64_image
-                        }
+                        "image_url": base64_image
                     }
                 ]
             }
@@ -160,7 +162,7 @@ def identify_component_type(image_bytes):
         response = requests.post(
             url=API_URL,
             headers=headers,
-            data=json.dumps(payload)
+            json=payload  # Changed from data=json.dumps(payload) to json=payload
         )
         response_json = response.json()
         
