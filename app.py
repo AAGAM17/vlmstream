@@ -507,8 +507,16 @@ def render_detailed_view(idx):
 def convert_pdf_to_images(pdf_bytes):
     """Convert PDF pages to images."""
     try:
-        # Convert PDF pages to images
-        images = convert_from_bytes(pdf_bytes)
+        # For macOS, poppler path is typically in /usr/local/bin
+        poppler_path = "/usr/local/bin"
+        
+        # Convert PDF pages to images with explicit poppler path
+        images = convert_from_bytes(
+            pdf_bytes,
+            poppler_path=poppler_path,
+            fmt='jpeg',
+            dpi=200
+        )
         
         # Convert PIL images to bytes
         image_bytes_list = []
@@ -519,7 +527,8 @@ def convert_pdf_to_images(pdf_bytes):
         
         return image_bytes_list
     except Exception as e:
-        st.error(f"Error converting PDF to images: {str(e)}")
+        st.error(f"Error converting PDF: {str(e)}")
+        st.error("If the error persists, please try converting your PDF to images before uploading.")
         return None
 
 def process_uploaded_file(uploaded_file):
