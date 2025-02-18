@@ -372,16 +372,22 @@ def main():
 
             # Display the table
             st.subheader("Uploaded Drawings")
-            st.dataframe(
-                st.session_state.drawings_data,
-                column_config={
-                    "View/Edit": st.column_config.ButtonColumn(
-                        "View/Edit",
-                        help="Click to view or edit the extracted data"
-                    )
-                },
-                hide_index=True
-            )
+            for idx, row in st.session_state.drawings_data.iterrows():
+                col1, col2, col3, col4, col5, col6 = st.columns([2, 3, 2, 2, 2, 1])
+                with col1:
+                    st.write(row['Drawing Type'])
+                with col2:
+                    st.write(row['Drawing No.'])
+                with col3:
+                    st.write(row['Processing Status'])
+                with col4:
+                    st.write(row['Extracted Fields Count'])
+                with col5:
+                    st.write(row['Confidence Score'])
+                with col6:
+                    if st.button('View', key=f'view_button_{idx}'):
+                        st.session_state.selected_drawing = row['Drawing No.']
+                st.divider()
 
     elif page == "Process Drawings":
         st.header("Process Drawings")
@@ -391,17 +397,23 @@ def main():
             return
 
         # Display the table with all drawings
-        clicked = st.dataframe(
-            st.session_state.drawings_data,
-            column_config={
-                "View/Edit": st.column_config.ButtonColumn(
-                    "View/Edit",
-                    help="Click to view or edit the extracted data"
-                )
-            },
-            hide_index=True,
-            on_click=lambda row: st.session_state.update({'selected_drawing': row['Drawing No.']})
-        )
+        st.subheader("All Drawings")
+        for idx, row in st.session_state.drawings_data.iterrows():
+            col1, col2, col3, col4, col5, col6 = st.columns([2, 3, 2, 2, 2, 1])
+            with col1:
+                st.write(row['Drawing Type'])
+            with col2:
+                st.write(row['Drawing No.'])
+            with col3:
+                st.write(row['Processing Status'])
+            with col4:
+                st.write(row['Extracted Fields Count'])
+            with col5:
+                st.write(row['Confidence Score'])
+            with col6:
+                if st.button('View', key=f'process_view_button_{idx}'):
+                    st.session_state.selected_drawing = row['Drawing No.']
+            st.divider()
 
         # Process selected drawing
         if 'selected_drawing' in st.session_state:
