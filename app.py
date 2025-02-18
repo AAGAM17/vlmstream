@@ -58,6 +58,10 @@ def analyze_cylinder_image(image_bytes):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://aagam17-vlmstream-app-mjypli.streamlit.app",  # Required for OpenRouter
+        "X-Title": "JSW Engineering Drawing Extractor",  # Optional but recommended
+        "OpenAI-Organization": "org-123",  # Required by OpenRouter
+        "User-Agent": "Mozilla/5.0"  # Required by OpenRouter
     }
 
     payload = {
@@ -103,12 +107,13 @@ def analyze_cylinder_image(image_bytes):
         response = requests.post(
             url=API_URL,
             headers=headers,
-            json=payload  # Changed from data=json.dumps(payload) to json=payload
+            json=payload
         )
         
         # Print debug information
         st.write("Debug - Response Status:", response.status_code)
         st.write("Debug - Response Headers:", dict(response.headers))
+        st.write("Debug - Request Headers:", headers)
         
         response_json = response.json()
         
@@ -127,6 +132,10 @@ def identify_component_type(image_bytes):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://aagam17-vlmstream-app-mjypli.streamlit.app",  # Required for OpenRouter
+        "X-Title": "JSW Engineering Drawing Extractor",  # Optional but recommended
+        "OpenAI-Organization": "org-123",  # Required by OpenRouter
+        "User-Agent": "Mozilla/5.0"  # Required by OpenRouter
     }
 
     payload = {
@@ -158,7 +167,7 @@ def identify_component_type(image_bytes):
         response = requests.post(
             url=API_URL,
             headers=headers,
-            json=payload  # Changed from data=json.dumps(payload) to json=payload
+            json=payload
         )
         response_json = response.json()
         
