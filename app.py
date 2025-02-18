@@ -1,4 +1,10 @@
 import streamlit as st
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="JSW Engineering Drawing DataSheet Extractor",
+    layout="wide"
+)
+
 import base64
 from PIL import Image
 import io
@@ -182,12 +188,6 @@ def calculate_confidence(parsed_results):
     return round((filled_fields / total_fields) * 100)
 
 def main():
-    # Set page config
-    st.set_page_config(
-        page_title="JSW Engineering Drawing DataSheet Extractor",
-        layout="wide"
-    )
-
     # Title
     st.title("JSW Engineering Drawing DataSheet Extractor")
 
