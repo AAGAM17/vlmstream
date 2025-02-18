@@ -17,7 +17,7 @@ import json
 load_dotenv()
 
 # Hardcoded API key for testing
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 # Debug information
 st.write("Debug Info:")
