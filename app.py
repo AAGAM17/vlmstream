@@ -11,9 +11,9 @@ import tempfile
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-if not API_KEY:
+if not OPENROUTER_API_KEY:
     st.error("❌ API key not found! Check your .env file.")
     st.stop()  
 
@@ -117,7 +117,7 @@ def analyze_cylinder_image(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -162,7 +162,7 @@ def identify_drawing_type(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
 
