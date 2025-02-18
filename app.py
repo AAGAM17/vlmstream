@@ -9,11 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY") or "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"
-
-if not API_KEY:
-    st.error("❌ API key not found! Check your .env file.")
-    st.stop()  
+API_KEY = "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"
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
