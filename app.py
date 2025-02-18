@@ -75,7 +75,7 @@ def analyze_cylinder_image(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer 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",
         "Content-Type": "application/json"
     }
 
