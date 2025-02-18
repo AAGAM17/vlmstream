@@ -58,8 +58,6 @@ def analyze_cylinder_image(image_bytes):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/AAGAM17",
-        "X-Title": "JSW Engineering Drawing Extractor"
     }
 
     payload = {
@@ -129,8 +127,6 @@ def identify_component_type(image_bytes):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/AAGAM17",
-        "X-Title": "JSW Engineering Drawing Extractor"
     }
 
     payload = {
