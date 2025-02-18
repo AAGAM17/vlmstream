@@ -93,7 +93,8 @@ def analyze_cylinder_image(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "HTTP-Referer": "https://github.com/aagam147",
+        "Authorization": API_KEY,
         "Content-Type": "application/json"
     }
 
@@ -139,7 +140,8 @@ def identify_component_type(image_bytes):
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "HTTP-Referer": "https://github.com/aagam147",
+        "Authorization": API_KEY,
         "Content-Type": "application/json"
     }
 
